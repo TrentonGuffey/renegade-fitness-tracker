@@ -1,0 +1,188 @@
+﻿import { supabase } from './supabase.js'
+
+// ── MyFitnessPal CSV Import ──
+window.handleMFPImport = async (event) => {
+    const file = event.target.files[0]
+    const msgEl = document.getElementById('mfpMessage')
+
+    if (!file) return
+
+    msgEl.textContent = 'Reading file...'
+    msgEl.className = 'form-message'
+
+    const text = await file.text()
+    const lines = text.split('\n').filter(l => l.trim())
+
+    if (lines.length < 2) {
+        msgEl.textContent = 'File appears empty or invalid.'
+        msgEl.className = 'form-message error'
+        return
+    }
+
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''))
+
+    const getCol = (row, name) => {
+        const idx = headers.findIndex(h => h.includes(name))
+        return idx >= 0 ? row[idx]?.replace(/"/g, '').trim() : null
+    }
+
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+
+    const userId = session.user.id
+    let inserted = 0
+    let skipped = 0
+
+    for (let i = 1; i < lines.length; i++) {
+        const row = lines[i].split(',')
+
+        const date = getCol(row, 'date')
+        if (!date) continue
+
+        const record = {
+            user_id: userId,
+            logged_date: date,
+            calories: parseFloat(getCol(row, 'calorie') ?? getCol(row, 'energy') ?? 0) || 0,
+            protein_g: parseFloat(getCol(row, 'protein') ?? 0) || 0,
+            carbs_g: parseFloat(getCol(row, 'carbohydrate') ?? getCol(row, 'carb') ?? 0) || 0,
+            fat_g: parseFloat(getCol(row, 'fat') ?? 0) || 0,
+            fiber_g: parseFloat(getCol(row, 'fiber') ?? 0) || 0,
+            sugar_g: parseFloat(getCol(row, 'sugar') ?? 0) || 0,
+            sodium_mg: parseFloat(getCol(row, 'sodium') ?? 0) || 0,
+            source: 'myfitnesspal_import'
+        }
+
+        // Check for duplicate
+        const { data: existing } = await supabase
+            .from('nutrition_logs')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('logged_date', date)
+            .eq('source', 'myfitnesspal_import')
+            .limit(1)
+
+        if (existing?.length > 0) {
+            skipped++
+            continue
+        }
+
+        const { error } = await supabase.from('nutrition_logs').insert(record)
+        if (!error) inserted++
+    }
+
+    // Log the import
+    await supabase.from('import_logs').insert({
+        user_id: userId,
+        import_type: 'myfitnesspal',
+        record_count: inserted,
+        status: 'completed'
+    })
+
+    msgEl.textContent = `Import complete — ${inserted} records added, ${skipped} duplicates skipped.`
+    msgEl.className = 'form-message'
+}
+
+// ── Apple Health XML Import ──
+window.handleAppleHealthImport = async (event) => {
+    const file = event.target.files[0]
+    const msgEl = document.getElementById('appleHealthMessage')
+
+    if (!file) return
+
+    msgEl.textContent = 'Reading Apple Health file... this may take a moment.'
+    msgEl.className = 'form-message'
+
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+
+    const userId = session.user.id
+
+    const text = await file.text()
+    const parser = new DOMParser()
+    const xml = parser.parseFromString(text, 'text/xml')
+
+    let sleepInserted = 0
+    let sleepSkipped = 0
+    let workoutInserted = 0
+
+    // ── Sleep Records ──
+    const sleepRecords = xml.querySelectorAll('Record[type="HKCategoryTypeIdentifierSleepAnalysis"]')
+
+    const sleepByDate = {}
+    sleepRecords.forEach(record => {
+        const start = new Date(record.getAttribute('startDate'))
+        const end = new Date(record.getAttribute('endDate'))
+        const date = start.toISOString().split('T')[0]
+        const minutes = Math.round((end - start) / 60000)
+        const value = record.getAttribute('value') ?? ''
+
+        if (!sleepByDate[date]) {
+            sleepByDate[date] = { total: 0, deep: 0, rem: 0 }
+        }
+
+        sleepByDate[date].total += minutes
+        if (value.includes('Deep')) sleepByDate[date].deep += minutes
+        if (value.includes('REM')) sleepByDate[date].rem += minutes
+    })
+
+    for (const [date, data] of Object.entries(sleepByDate)) {
+        const { data: existing } = await supabase
+            .from('sleep_logs')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('sleep_date', date)
+            .eq('source', 'apple_health')
+            .limit(1)
+
+        if (existing?.length > 0) {
+            sleepSkipped++
+            continue
+        }
+
+        const { error } = await supabase.from('sleep_logs').insert({
+            user_id: userId,
+            sleep_date: date,
+            duration_minutes: data.total,
+            deep_sleep_minutes: data.deep || null,
+            rem_sleep_minutes: data.rem || null,
+            source: 'apple_health'
+        })
+
+        if (!error) sleepInserted++
+    }
+
+    // ── Workout Records ──
+    const workouts = xml.querySelectorAll('Workout')
+
+    for (const workout of workouts) {
+        const type = workout.getAttribute('workoutActivityType') ?? ''
+        const start = new Date(workout.getAttribute('startDate'))
+        const end = new Date(workout.getAttribute('endDate'))
+        const date = start.toISOString().split('T')[0]
+        const duration = Math.round((end - start) / 60000)
+
+        const distance = workout.querySelector('WorkoutStatistics[type="HKQuantityTypeIdentifierDistanceWalkingRunning"]')
+        const distanceVal = distance ? parseFloat(distance.getAttribute('sum') ?? 0) : null
+
+        const { error } = await supabase.from('activity_logs').insert({
+            user_id: userId,
+            logged_date: date,
+            duration_minutes: duration,
+            notes: `Imported from Apple Health: ${type.replace('HKWorkoutActivityType', '')}`,
+            source: 'apple_health'
+        })
+
+        if (!error) workoutInserted++
+    }
+
+    // Log the import
+    await supabase.from('import_logs').insert({
+        user_id: userId,
+        import_type: 'apple_health',
+        record_count: sleepInserted + workoutInserted,
+        status: 'completed'
+    })
+
+    msgEl.textContent = `Import complete — ${sleepInserted} sleep records and ${workoutInserted} workouts added. ${sleepSkipped} duplicates skipped.`
+    msgEl.className = 'form-message'
+}

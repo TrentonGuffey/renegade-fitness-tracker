@@ -1,0 +1,207 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Renegade Fitness Tracker</title>
+    <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="app-page">
+
+    <!-- Top Nav -->
+    <nav class="top-nav">
+        <div class="nav-brand">RENEGADE</div>
+        <div class="nav-user">
+            <span id="navUserName"></span>
+            <button class="btn-logout" onclick="handleLogout()">Sign Out</button>
+        </div>
+    </nav>
+
+    <!-- Bottom Nav (mobile) -->
+    <nav class="bottom-nav">
+        <button class="nav-item active" onclick="showSection('dashboard')">
+            <span class="nav-icon">⊞</span>
+            <span>Dashboard</span>
+        </button>
+        <button class="nav-item" onclick="showSection('log')">
+            <span class="nav-icon">＋</span>
+            <span>Log</span>
+        </button>
+        <button class="nav-item" onclick="showSection('plan')">
+            <span class="nav-icon">📅</span>
+            <span>Plan</span>
+        </button>
+        <button class="nav-item" onclick="showSection('nutrition')">
+            <span class="nav-icon">🥗</span>
+            <span>Nutrition</span>
+        </button>
+        <button class="nav-item" onclick="showSection('profile')">
+            <span class="nav-icon">👤</span>
+            <span>Profile</span>
+        </button>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="app-main">
+
+        <!-- Dashboard Section -->
+        <section id="section-dashboard" class="app-section active">
+            <div class="section-header">
+                <h2>Dashboard</h2>
+                <p class="section-sub" id="dashboardDate"></p>
+            </div>
+
+            <!-- Stats Row -->
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-label">This Week</div>
+                    <div class="stat-value" id="statWeeklyMiles">—</div>
+                    <div class="stat-unit">miles</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Activities</div>
+                    <div class="stat-value" id="statWeeklyActivities">—</div>
+                    <div class="stat-unit">logged</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Body Weight</div>
+                    <div class="stat-value" id="statBodyWeight">—</div>
+                    <div class="stat-unit">lbs</div>
+                </div>
+            </div>
+
+            <!-- Next Event Countdown -->
+            <div class="event-countdown" id="eventCountdown">
+                <div class="countdown-label">Next Event</div>
+                <div class="countdown-name" id="countdownName">—</div>
+                <div class="countdown-days" id="countdownDays">—</div>
+                <div class="countdown-unit">days away</div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="card">
+                <div class="card-header">Recent Activity</div>
+                <div id="recentActivity">
+                    <p class="empty-state">No activities logged yet. Hit the Log tab to get started.</p>
+                </div>
+            </div>
+
+            <!-- Claude Export -->
+            <div class="card">
+                <div class="card-header">Export for Claude Analysis</div>
+                <p class="card-desc">Generate a summary of your recent training data to paste into Claude for analysis.</p>
+                <div class="export-options">
+                    <select id="exportRange">
+                        <option value="7">Last 7 days</option>
+                        <option value="14">Last 14 days</option>
+                        <option value="30" selected>Last 30 days</option>
+                        <option value="90">Last 90 days</option>
+                    </select>
+                    <button class="btn-primary" onclick="exportForClaude()">Generate Export</button>
+                </div>
+                <textarea id="exportOutput" placeholder="Your export will appear here..." readonly></textarea>
+            </div>
+        </section>
+
+        <!-- Log Section -->
+        <section id="section-log" class="app-section">
+            <div class="section-header">
+                <h2>Log Activity</h2>
+            </div>
+            <div class="card">
+                <div class="form-group">
+                    <label>Activity Type</label>
+                    <select id="logActivityType" onchange="loadMetricFields()">
+                        <option value="">Select type...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Date</label>
+                    <input type="date" id="logDate" />
+                </div>
+                <div class="form-group">
+                    <label>Duration (minutes)</label>
+                    <input type="number" id="logDuration" placeholder="e.g. 55" />
+                </div>
+                <div id="dynamicMetricFields"></div>
+                <div class="form-group">
+                    <label>Notes</label>
+                    <textarea id="logNotes" placeholder="How did it feel? Any issues?"></textarea>
+                </div>
+                <button class="btn-primary" onclick="handleLogActivity()">Save Activity</button>
+                <div class="form-message" id="logMessage"></div>
+            </div>
+        </section>
+
+        <!-- Plan Section -->
+        <section id="section-plan" class="app-section">
+            <div class="section-header">
+                <h2>Training Plan</h2>
+            </div>
+            <div class="card">
+                <div class="card-header">Upcoming Sessions</div>
+                <div id="planSessions">
+                    <p class="empty-state">No training plan set up yet.</p>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">Events</div>
+                <div id="eventsList"></div>
+                <button class="btn-secondary" onclick="showAddEvent()">+ Add Event</button>
+            </div>
+        </section>
+
+        <!-- Nutrition Section -->
+        <section id="section-nutrition" class="app-section">
+            <div class="section-header">
+                <h2>Nutrition</h2>
+            </div>
+            <div class="card">
+                <div class="card-header">Import MyFitnessPal Data</div>
+                <p class="card-desc">Export your data from MyFitnessPal as CSV and upload it here.</p>
+                <input type="file" id="mfpFile" accept=".csv" onchange="handleMFPImport(event)" />
+                <div class="form-message" id="mfpMessage"></div>
+            </div>
+            <div class="card">
+                <div class="card-header">Recent Nutrition</div>
+                <div id="nutritionLog">
+                    <p class="empty-state">No nutrition data yet.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Profile Section -->
+        <section id="section-profile" class="app-section">
+            <div class="section-header">
+                <h2>Profile</h2>
+            </div>
+            <div class="card">
+                <div class="card-header">Personal Info</div>
+                <div class="form-group">
+                    <label>Display Name</label>
+                    <input type="text" id="profileName" />
+                </div>
+                <div class="form-group">
+                    <label>Body Weight (lbs)</label>
+                    <input type="number" id="profileWeight" placeholder="e.g. 185" />
+                </div>
+                <button class="btn-primary" onclick="saveProfile()">Save Profile</button>
+                <div class="form-message" id="profileMessage"></div>
+            </div>
+            <div class="card">
+                <div class="card-header">Import Apple Health Data</div>
+                <p class="card-desc">Export your Apple Health data as XML and upload it here.</p>
+                <input type="file" id="appleHealthFile" accept=".xml" onchange="handleAppleHealthImport(event)" />
+                <div class="form-message" id="appleHealthMessage"></div>
+            </div>
+            <div class="card">
+                <div class="card-header">Security</div>
+                <button class="btn-secondary" onclick="handlePasswordReset()">Send Password Reset Email</button>
+            </div>
+        </section>
+
+    </main>
+
+    <script type="module" src="js/dashboard.js"></script>
+</body>
+</html>

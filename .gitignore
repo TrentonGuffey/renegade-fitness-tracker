@@ -1,0 +1,14 @@
+# Enviroment and secrets
+config.js
+secrets.js
+
+# VS artifacts
+.vs/
+*.user
+
+#OS files
+.DS_Store
+Thumbs.db
+
+# Node (if we add build tools later)
+node_modules/

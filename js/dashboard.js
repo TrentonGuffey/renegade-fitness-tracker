@@ -332,18 +332,15 @@ style.textContent = `
 `
 document.head.appendChild(style)
 
-// ── Initialize ──
-loadDashboardStats()
-loadNextEvent()
-loadActivityTypes()
-
 // ── Toggle Add Event Form ──
 window.toggleAddEvent = () => {
-    const form = document.getElementById('addEventform')
+    const form = document.getElementById('addEventForm')
+    if (!form) {
+        console.error('addEventForm not found')
+        return
+    }
     const isVisible = form.style.display === 'block'
     form.style.display = isVisible ? 'none' : 'block'
-
-    // Populate activity types dropdown
     if (!isVisible) loadEventActivityTypes()
 }
 
@@ -538,4 +535,9 @@ eventStyle.textContent = `
 document.head.appendChild(eventStyle)
 
 // ── Add loadEvents to Initialize ──
-loadEvents()
+document.addEventListener('DOMContentLoaded', () => {
+    loadDashboardStats()
+    loadNextEvent()
+    loadActivityTypes()
+    loadEvents()
+})

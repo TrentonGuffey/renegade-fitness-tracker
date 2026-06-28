@@ -9,4 +9,4 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
         persistSession: true,
         detectSessionInUrl: true
     }
-}) ent(SUPABASE_URL, SUPABASE_KEY)
+})

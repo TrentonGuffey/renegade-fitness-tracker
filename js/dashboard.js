@@ -347,25 +347,6 @@ window.toggleAddEvent = () => {
     if (!isVisible) loadEventActivityTypes()
 }
 
-// ── Load Activity Types for Event Form ──
-const loadEventActivityTypes = async () => {
-    const select = document.getElementById('eventActivityType')
-    select.innerHTML = '<option value="">Select type...</option>'
-
-    const { data } = await supabase
-        .from('activity_types')
-        .select('*')
-        .or(`user_id.eq.${user.id},is_default.eq.true`)
-        .order('name')
-
-    data?.forEach(type => {
-        const opt = document.createElement('option')
-        opt.value = type.id
-        opt.textContent = type.name
-        select.appendChild(opt)
-    })
-}
-
 // ── Handle Add Event ──
 window.handleAddEvent = async () => {
     const name = document.getElementById('eventName').value.trim()

@@ -336,3 +336,206 @@ document.head.appendChild(style)
 loadDashboardStats()
 loadNextEvent()
 loadActivityTypes()
+
+// ── Toggle Add Event Form ──
+window.toggleAddEvent = () => {
+    const form = document.getElementById('addEventform')
+    const isVisible = form.style.display === 'block'
+    form.style.display = isVisible ? 'none' : 'block'
+
+    // Populate activity types dropdown
+    if (!isVisible) loadEventActivityTypes()
+}
+
+// ── Load Activity Types for Event Form ──
+const loadEventActivityTypes = async () => {
+    const select = document.getElementById('eventActivityType')
+    select.innerHTML = '<option value="">Select type...</option>'
+
+    const { data } = await supabase
+        .from('activity_types')
+        .select('*')
+        .or(`user_id.eq.${user.id},is_default.eq.true`)
+        .order('name')
+
+    data?.forEach(type => {
+        const opt = document.createElement('option')
+        opt.value = type.id
+        opt.textContent = type.name
+        select.appendChild(opt)
+    })
+}
+
+// ── Handle Add Event ──
+window.handleAddEvent = async () => {
+    const name = document.getElementById('eventName').value.trim()
+    const date = document.getElementById('eventDate').value
+    const activityTypeId = document.getElementById('eventActivityType').value
+    const goalDistance = document.getElementById('eventGoalDistance').value
+    const goalTime = document.getElementById('eventGoalTime').value
+    const goalWeight = document.getElementById('eventGoalWeight').value
+    const notes = document.getElementById('eventNotes').value
+    const msgEl = document.getElementById('eventMessage')
+
+    if (!name || !date) {
+        msgEl.textContent = 'Event name and date are required.'
+        msgEl.className = 'form-message error'
+        return
+    }
+
+    msgEl.textContent = 'Saving event...'
+    msgEl.className = 'form-message'
+
+    const goalMetrics = {}
+    if (goalDistance) goalMetrics.distance_miles = parseFloat(goalDistance)
+    if (goalTime) goalMetrics.goal_time = goalTime
+    if (goalWeight) goalMetrics.pack_weight_lbs = parseFloat(goalWeight)
+
+    const { error } = await supabase.from('events').insert({
+        user_id: user.id,
+        name,
+        event_date: date,
+        event_type_id: activityTypeId || null,
+        goal_metrics: goalMetrics,
+        notes: notes || null,
+        status: 'active'
+    })
+
+    if (error) {
+        msgEl.textContent = error.message
+        msgEl.className = 'form-message error'
+        return
+    }
+
+    msgEl.textContent = 'Event saved!'
+    msgEl.className = 'form-message'
+
+    // Reset form
+    document.getElementById('eventName').value = ''
+    document.getElementById('eventDate').value = ''
+    document.getElementById('eventActivityType').value = ''
+    document.getElementById('eventGoalDistance').value = ''
+    document.getElementById('eventGoalTime').value = ''
+    document.getElementById('eventGoalWeight').value = ''
+    document.getElementById('eventNotes').value = ''
+
+    // Reload events and countdown
+    setTimeout(() => {
+        document.getElementById('addEventForm').style.display = 'none'
+        loadEvents()
+        loadNextEvent()
+    }, 1000)
+}
+
+// ── Load Events List ──
+const loadEvents = async () => {
+    const { data: events } = await supabase
+        .from('events')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('event_date', { ascending: true })
+
+    const el = document.getElementById('eventsList')
+
+    if (!events?.length) {
+        el.innerHTML = '<p class="empty-state">No events added yet.</p>'
+        return
+    }
+
+    el.innerHTML = events.map(e => {
+        const daysAway = Math.ceil((new Date(e.event_date) - new Date()) / (1000 * 60 * 60 * 24))
+        const isPast = daysAway < 0
+        const goals = e.goal_metrics ?? {}
+
+        return `
+      <div class="event-item">
+        <div class="event-item-header">
+          <div class="event-item-name">${e.name}</div>
+          <div class="event-item-badge ${isPast ? 'past' : ''}">${isPast ? 'Completed' : `${daysAway}d`}</div>
+        </div>
+        <div class="event-item-date">${e.event_date}</div>
+        <div class="event-item-goals">
+          ${goals.distance_miles ? `<span>📍 ${goals.distance_miles} miles</span>` : ''}
+          ${goals.goal_time ? `<span>⏱ ${goals.goal_time}</span>` : ''}
+          ${goals.pack_weight_lbs ? `<span>🎒 ${goals.pack_weight_lbs} lbs</span>` : ''}
+        </div>
+        <div style="display:flex; gap:8px; margin-top:10px;">
+          <button class="btn-secondary" style="padding:6px 12px; font-size:12px;" 
+            onclick="markEventComplete('${e.id}')">
+            ${isPast ? '✓ Completed' : 'Mark Complete'}
+          </button>
+          <button class="btn-secondary" style="padding:6px 12px; font-size:12px; color:#ef4444; border-color:#ef4444;" 
+            onclick="deleteEvent('${e.id}')">
+            Delete
+          </button>
+        </div>
+      </div>
+    `
+    }).join('')
+}
+
+// ── Mark Event Complete ──
+window.markEventComplete = async (id) => {
+    await supabase.from('events').update({ status: 'completed' }).eq('id', id)
+    loadEvents()
+    loadNextEvent()
+}
+
+// ── Delete Event ──
+window.deleteEvent = async (id) => {
+    if (!confirm('Delete this event?')) return
+    await supabase.from('events').delete().eq('id', id)
+    loadEvents()
+    loadNextEvent()
+}
+
+// ── Add Event Item Styles ──
+const eventStyle = document.createElement('style')
+eventStyle.textContent = `
+  .event-item {
+    padding: 14px 0;
+    border-bottom: 1px solid #334155;
+  }
+  .event-item:last-child { border-bottom: none; }
+  .event-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+  .event-item-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: #f1f5f9;
+  }
+  .event-item-badge {
+    font-size: 12px;
+    font-weight: 600;
+    color: #3b82f6;
+    background: #3b82f620;
+    padding: 3px 10px;
+    border-radius: 99px;
+  }
+  .event-item-badge.past {
+    color: #10b981;
+    background: #10b98120;
+  }
+  .event-item-date {
+    font-size: 12px;
+    color: #64748b;
+    margin-bottom: 8px;
+  }
+  .event-item-goals {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .event-item-goals span {
+    font-size: 12px;
+    color: #94a3b8;
+  }
+`
+document.head.appendChild(eventStyle)
+
+// ── Add loadEvents to Initialize ──
+loadEvents()

@@ -102,24 +102,27 @@ const loadNextEvent = async () => {
 }
 
 // ── Load Activity Types for Log Form ──
-const loadActivityTypes = async () => {
-    const { data } = await supabase
+const loadEventActivityTypes = async () => {
+    const select = document.getElementById('eventActivityType')
+    select.innerHTML = '<option value="">Select type...</option>'
+
+    const { data, error } = await supabase
         .from('activity_types')
         .select('*')
-        .or(`user_id.eq.${user.id},is_default.eq.true`)
         .order('name')
 
-    const select = document.getElementById('logActivityType')
-    if (data?.length > 0) {
-        data.forEach(type => {
-            const opt = document.createElement('option')
-            opt.value = type.id
-            opt.textContent = type.name
-            select.appendChild(opt)
-        })
+    if (error) {
+        console.error('Error loading activity types:', error)
+        return
     }
-}
 
+    data?.forEach(type => {
+        const opt = document.createElement('option')
+        opt.value = type.id
+        opt.textContent = type.name
+        select.appendChild(opt)
+    })
+}
 // ── Load Dynamic Metric Fields ──
 window.loadMetricFields = async () => {
     const typeId = document.getElementById('logActivityType').value

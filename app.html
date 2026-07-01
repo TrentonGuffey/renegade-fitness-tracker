@@ -200,7 +200,7 @@
             <div class="card">
                 <div class="card-header">Import MyFitnessPal Data</div>
                 <p class="card-desc">Export your data from MyFitnessPal as CSV and upload it here.</p>
-                <input type="file" id="mfpFile" accept=".csv" onchange="handleMFPImport(event)" />
+                <input type="file" id="mfpFile" accept=".csv" />
                 <div class="form-message" id="mfpMessage"></div>
             </div>
             <div class="card">
@@ -232,7 +232,7 @@
             <div class="card">
                 <div class="card-header">Import Apple Health Data</div>
                 <p class="card-desc">Export your Apple Health data as XML and upload it here.</p>
-                <input type="file" id="appleHealthFile" accept=".xml" onchange="handleAppleHealthImport(event)" />
+                <input type="file" id="appleHealthFile" accept=".xml" />                
                 <div class="form-message" id="appleHealthMessage"></div>
             </div>
             <div class="card">
@@ -244,5 +244,6 @@
     </main>
 
     <script type="module" src="js/dashboard.js"></script>
+    <script type="module" src="js/import.js"></script>
 </body>
 </html>

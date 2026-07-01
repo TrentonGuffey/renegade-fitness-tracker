@@ -186,3 +186,16 @@ window.handleAppleHealthImport = async (event) => {
     msgEl.textContent = `Import complete — ${sleepInserted} sleep records and ${workoutInserted} workouts added. ${sleepSkipped} duplicates skipped.`
     msgEl.className = 'form-message'
 }
+
+// ── Bind file inputs after DOM loads ──
+document.addEventListener('DOMContentLoaded', () => {
+    const appleHealthFile = document.getElementById('appleHealthFile')
+    if (appleHealthFile) {
+        appleHealthFile.addEventListener('change', handleAppleHealthImport)
+    }
+
+    const mfpFile = document.getElementById('mfpFile')
+    if (mfpFile) {
+        mfpFile.addEventListener('change', handleMFPImport)
+    }
+})

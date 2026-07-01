@@ -168,6 +168,14 @@ window.handleAppleHealthImport = async (event) => {
     }
 
     // ── Workout Records ──
+    const distanceTypes = [
+        'HKQuantityTypeIdentifierDistanceWalkingRunning',
+        'HKQuantityTypeIdentifierDistanceCycling',
+        'HKQuantityTypeIdentifierDistanceSwimming',
+        'HKQuantityTypeIdentifierDistanceDownhillSnowSports',
+        'HKQuantityTypeIdentifierDistanceWheelchair'
+    ]
+
     const workouts = xml.querySelectorAll('Workout')
 
     for (const workout of workouts) {
@@ -177,11 +185,33 @@ window.handleAppleHealthImport = async (event) => {
         const date = start.toISOString().split('T')[0]
         const duration = Math.round((end - start) / 60000)
 
+        // Get distance from totalDistance attribute first
         const totalDistance = workout.getAttribute('totalDistance')
-        const totalDistanceUnit = workout.getAttribute('totalDistanceUnit')
-        const distanceVal = totalDistance ? parseFloat(totalDistance) : null
+        const totalDistanceUnit = workout.getAttribute('totalDistanceUnit') ?? 'mi'
+        let distanceVal = totalDistance ? parseFloat(totalDistance) : 0
 
+        // Convert to miles if needed
+        if (distanceVal > 0 && totalDistanceUnit.toLowerCase().includes('km')) {
+            distanceVal = distanceVal * 0.621371
+        }
 
+        // Override with WorkoutStatistics if available (more accurate)
+        const stats = workout.querySelectorAll('WorkoutStatistics')
+        stats.forEach(stat => {
+            const statType = stat.getAttribute('type') ?? ''
+            const statUnit = stat.getAttribute('unit') ?? ''
+            const sum = stat.getAttribute('sum')
+
+            if (distanceTypes.includes(statType) && sum) {
+                let statMiles = parseFloat(sum)
+                if (statUnit.toLowerCase().includes('km')) {
+                    statMiles = statMiles * 0.621371
+                }
+                if (statMiles > 0) distanceVal = statMiles
+            }
+        })
+
+        // Insert activity log
         const { data: logData, error } = await supabase.from('activity_logs').insert({
             user_id: userId,
             activity_type_id: getActivityTypeId(type.replace('HKWorkoutActivityType', '')),
@@ -196,7 +226,6 @@ window.handleAppleHealthImport = async (event) => {
 
             // Save distance metric if available
             if (distanceVal && distanceVal > 0) {
-                // Find the distance metric definition for this activity type
                 const activityTypeName = type.replace('HKWorkoutActivityType', '')
                 const mappedTypeId = getActivityTypeId(activityTypeName)
 
@@ -209,16 +238,12 @@ window.handleAppleHealthImport = async (event) => {
                         .single()
 
                     if (metricDef) {
-                        // Convert km to miles if needed
-                        const distanceMiles = totalDistanceUnit === 'km'
-                            ? (distanceVal * 0.621371).toFixed(2)
-                            : distanceVal.toFixed(2)
-
                         await supabase.from('activity_metric_values').insert({
                             activity_log_id: logData.id,
                             metric_definition_id: metricDef.id,
-                            value: distanceMiles.toString()
-                        })                    }
+                            value: distanceVal.toFixed(2).toString()
+                        })
+                    }
                 }
             }
         }

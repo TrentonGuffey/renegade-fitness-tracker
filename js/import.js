@@ -82,6 +82,22 @@ window.handleMFPImport = async (event) => {
     msgEl.className = 'form-message'
 }
 
+// ── Apple Health to Activity Type ID mapping ──
+const activityTypeMap = {
+    'Walking': '6c1b43d0-3761-4559-9cf9-ca14497b4cd4',
+    'Running': '18511d2b-c033-4a8f-9683-cf34a608f47d',
+    'Hiking': '2e3e37a6-d845-4c4a-9ab2-b6eb2e7d7844',
+    'Cycling': 'ce62a599-8f2a-454b-83a9-81b29467309a',
+    'Swimming': 'cf5bb091-8d69-4ffa-8e20-76090ba6a43e',
+    'TraditionalStrengthTraining': 'ca05c664-09bc-44d9-aab8-bd1fdcf0fe96',
+    'FunctionalStrengthTraining': 'ca05c664-09bc-44d9-aab8-bd1fdcf0fe96',
+    'HighIntensityIntervalTraining': 'ca05c664-09bc-44d9-aab8-bd1fdcf0fe96',
+    'Elliptical': 'ca05c664-09bc-44d9-aab8-bd1fdcf0fe96',
+    'Rowing': 'ca05c664-09bc-44d9-aab8-bd1fdcf0fe96'
+}
+
+const getActivityTypeId = (typeName) => activityTypeMap[typeName] ?? '6c1b43d0-3761-4559-9cf9-ca14497b4cd4'
+
 // ── Apple Health XML Import ──
 window.handleAppleHealthImport = async (event) => {
     const file = event.target.files[0]
@@ -164,15 +180,42 @@ window.handleAppleHealthImport = async (event) => {
         const distance = workout.querySelector('WorkoutStatistics[type="HKQuantityTypeIdentifierDistanceWalkingRunning"]')
         const distanceVal = distance ? parseFloat(distance.getAttribute('sum') ?? 0) : null
 
-        const { error } = await supabase.from('activity_logs').insert({
+        const { data: logData, error } = await supabase.from('activity_logs').insert({
             user_id: userId,
+            activity_type_id: getActivityTypeId(type.replace('HKWorkoutActivityType', '')),
             logged_date: date,
             duration_minutes: duration,
             notes: `Imported from Apple Health: ${type.replace('HKWorkoutActivityType', '')}`,
             source: 'apple_health'
-        })
+        }).select().single()
 
-        if (!error) workoutInserted++
+        if (!error && logData) {
+            workoutInserted++
+
+            // Save distance metric if available
+            if (distanceVal && distanceVal > 0) {
+                // Find the distance metric definition for this activity type
+                const activityTypeName = type.replace('HKWorkoutActivityType', '')
+                const mappedTypeId = getActivityTypeId(activityTypeName)
+
+                if (mappedTypeId) {
+                    const { data: metricDef } = await supabase
+                        .from('metric_definitions')
+                        .select('id')
+                        .eq('activity_type_id', mappedTypeId)
+                        .eq('label', 'Distance')
+                        .single()
+
+                    if (metricDef) {
+                        await supabase.from('activity_metric_values').insert({
+                            activity_log_id: logData.id,
+                            metric_definition_id: metricDef.id,
+                            value: distanceVal.toString()
+                        })
+                    }
+                }
+            }
+        }
     }
 
     // Log the import

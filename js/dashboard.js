@@ -1,11 +1,7 @@
 ﻿import { supabase } from './supabase.js'
 
-// ── Auth Guard ──
-const { data: { session } } = await supabase.auth.getSession()
-if (!session) window.location.href = 'index.html'
-
-const user = session.user
-const displayName = user.user_metadata?.display_name || user.email
+let user = null
+let displayName = ''
 
 // ── Set User Name in Nav ──
 document.getElementById('navUserName').textContent = displayName
@@ -518,10 +514,18 @@ eventStyle.textContent = `
 `
 document.head.appendChild(eventStyle)
 
-// ── Add loadEvents to Initialize ──
-document.addEventListener('DOMContentLoaded', () => {
-    loadDashboardStats()
-    loadNextEvent()
-    loadActivityTypes()
-    loadEvents()
-})
+// ── Initialize ──
+const init = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+        window.location.href = 'index.html'
+        return
+    }
+
+    await loadDashboardStats()
+    await loadNextEvent()
+    await loadActivityTypes()
+    await loadEvents()
+}
+
+init()

@@ -707,6 +707,25 @@ const loadFilterTypes = async () => {
     })
 }
 
+// ── Load Activity Types for Log Form ──
+const loadActivityTypes = async () => {
+    const select = document.getElementById('logActivityType')
+    if (!select) return
+    select.innerHTML = '<option value="">Select type...</option>'
+
+    const { data } = await supabase
+        .from('activity_types')
+        .select('*')
+        .order('name')
+
+    data?.forEach(type => {
+        const opt = document.createElement('option')
+        opt.value = type.id
+        opt.textContent = type.name
+        select.appendChild(opt)
+    })
+}
+
 // ── Initialize ──
 const init = async () => {
     const { data: { session } } = await supabase.auth.getSession()

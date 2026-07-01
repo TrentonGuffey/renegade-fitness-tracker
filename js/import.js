@@ -181,7 +181,6 @@ window.handleAppleHealthImport = async (event) => {
         const totalDistanceUnit = workout.getAttribute('totalDistanceUnit')
         const distanceVal = totalDistance ? parseFloat(totalDistance) : null
 
-        console.log('Workout:', type, 'Distance:', distanceVal, 'Raw:', distance)
 
         const { data: logData, error } = await supabase.from('activity_logs').insert({
             user_id: userId,

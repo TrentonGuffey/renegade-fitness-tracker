@@ -3,17 +3,6 @@
 let user = null
 let displayName = ''
 
-// ── Set User Name in Nav ──
-document.getElementById('navUserName').textContent = displayName
-
-// ── Set Dashboard Date ──
-document.getElementById('dashboardDate').textContent = new Date().toLocaleDateString('en-US', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-})
-
-// ── Set Default Log Date ──
-document.getElementById('logDate').value = new Date().toISOString().split('T')[0]
-
 // ── Section Navigation ──
 window.showSection = (name) => {
     document.querySelectorAll('.app-section').forEach(s => s.classList.remove('active'))
@@ -521,6 +510,20 @@ const init = async () => {
         window.location.href = 'index.html'
         return
     }
+
+    user = session.user
+    displayName = user.user_metadata?.display_name || user.email
+
+    // Set User Name in Nav
+    document.getElementById('navUserName').textContent = displayName
+
+    // Set Dashboard Date
+    document.getElementById('dashboardDate').textContent = new Date().toLocaleDateString('en-US', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+    })
+
+    // Set Default Log Date
+    document.getElementById('logDate').value = new Date().toISOString().split('T')[0]
 
     await loadDashboardStats()
     await loadNextEvent()

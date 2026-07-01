@@ -494,3 +494,123 @@ input[type="file"] {
         padding: 28px 20px;
     }
 }
+
+/* ── Filter Row ── */
+.filter-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+    .filter-row select {
+        flex: 1;
+        background: #0f172a;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        padding: 10px 12px;
+        color: #f1f5f9;
+        font-size: 13px;
+        min-width: 120px;
+    }
+
+/* ── Activity History Cards ── */
+.activity-card {
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+}
+
+    .activity-card:hover {
+        border-color: #3b82f6;
+        cursor: pointer;
+    }
+
+.activity-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+}
+
+.activity-card-left {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.activity-card-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #f1f5f9;
+}
+
+.activity-card-meta {
+    font-size: 12px;
+    color: #64748b;
+}
+
+.activity-card-right {
+    font-size: 12px;
+    color: #475569;
+}
+
+.activity-card-expand {
+    border-top: 1px solid #1e293b;
+    padding: 16px;
+    display: none;
+}
+
+    .activity-card-expand.open {
+        display: block;
+    }
+
+.activity-card-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.btn-save {
+    flex: 1;
+    padding: 10px;
+    background: #3b82f6;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+    .btn-save:hover {
+        background: #2563eb;
+    }
+
+.btn-delete {
+    flex: 1;
+    padding: 10px;
+    background: transparent;
+    color: #ef4444;
+    border: 1px solid #ef4444;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+    .btn-delete:hover {
+        background: #ef444420;
+    }
+
+.activity-save-msg {
+    font-size: 12px;
+    color: #10b981;
+    margin-top: 8px;
+    min-height: 16px;
+}

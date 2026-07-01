@@ -503,6 +503,210 @@ eventStyle.textContent = `
 `
 document.head.appendChild(eventStyle)
 
+// ── Activity History ──
+let activityOffset = 0
+const activityLimit = 20
+
+window.loadActivityHistory = async () => {
+    activityOffset = 0
+    const container = document.getElementById('activityHistory')
+    container.innerHTML = '<p class="empty-state">Loading...</p>'
+    await fetchActivities(true)
+}
+
+window.loadMoreActivities = async () => {
+    activityOffset += activityLimit
+    await fetchActivities(false)
+}
+
+const fetchActivities = async (replace = true) => {
+    const typeFilter = document.getElementById('filterActivityType')?.value
+    const dateRange = parseInt(document.getElementById('filterDateRange')?.value ?? 30)
+
+    let query = supabase
+        .from('activity_logs')
+        .select('*, activity_types(name)')
+        .eq('user_id', user.id)
+        .order('logged_date', { ascending: false })
+        .range(activityOffset, activityOffset + activityLimit - 1)
+
+    if (typeFilter) query = query.eq('activity_type_id', typeFilter)
+
+    if (dateRange > 0) {
+        const cutoff = new Date(Date.now() - dateRange * 24 * 60 * 60 * 1000)
+            .toISOString().split('T')[0]
+        query = query.gte('logged_date', cutoff)
+    }
+
+    const { data, error } = await query
+
+    if (error) {
+        console.error('Error fetching activities:', error)
+        return
+    }
+
+    const container = document.getElementById('activityHistory')
+    const loadMoreContainer = document.getElementById('loadMoreContainer')
+
+    if (replace) container.innerHTML = ''
+
+    if (!data?.length && replace) {
+        container.innerHTML = '<p class="empty-state">No activities found.</p>'
+        loadMoreContainer.style.display = 'none'
+        return
+    }
+
+    data.forEach(activity => {
+        const card = document.createElement('div')
+        card.className = 'activity-card'
+        card.id = `activity-card-${activity.id}`
+
+        const date = activity.logged_date
+        const type = activity.activity_types?.name ?? 'Unknown'
+        const duration = activity.duration_minutes ? `${activity.duration_minutes} min` : '—'
+        const source = activity.source === 'apple_health' ? '🍎 Apple Health' :
+            activity.source === 'myfitnesspal_import' ? '📊 MyFitnessPal' : '✏️ Manual'
+
+        card.innerHTML = `
+      <div class="activity-card-header" onclick="toggleActivityCard('${activity.id}')">
+        <div class="activity-card-left">
+          <div class="activity-card-name">${type}</div>
+          <div class="activity-card-meta">${date} · ${duration} · ${source}</div>
+        </div>
+        <div class="activity-card-right">▾</div>
+      </div>
+      <div class="activity-card-expand" id="expand-${activity.id}">
+        <div class="form-group">
+          <label>Activity Type</label>
+          <select id="edit-type-${activity.id}">
+            <option value="">Loading...</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" id="edit-date-${activity.id}" value="${date}" />
+        </div>
+        <div class="form-group">
+          <label>Duration (minutes)</label>
+          <input type="number" id="edit-duration-${activity.id}" 
+            value="${activity.duration_minutes ?? ''}" placeholder="e.g. 55" />
+        </div>
+        <div class="form-group">
+          <label>Notes</label>
+          <textarea id="edit-notes-${activity.id}">${activity.notes ?? ''}</textarea>
+        </div>
+        <div class="activity-card-actions">
+          <button class="btn-save" onclick="saveActivity('${activity.id}')">Save</button>
+          <button class="btn-delete" onclick="deleteActivity('${activity.id}')">Delete</button>
+        </div>
+        <div class="activity-save-msg" id="save-msg-${activity.id}"></div>
+      </div>
+    `
+        container.appendChild(card)
+    })
+
+    loadMoreContainer.style.display = data.length === activityLimit ? 'block' : 'none'
+
+    // Populate activity type dropdowns for each card
+    const { data: types } = await supabase
+        .from('activity_types')
+        .select('*')
+        .order('name')
+
+    data.forEach(activity => {
+        const select = document.getElementById(`edit-type-${activity.id}`)
+        if (!select) return
+        select.innerHTML = types.map(t =>
+            `<option value="${t.id}" ${t.id === activity.activity_type_id ? 'selected' : ''}>${t.name}</option>`
+        ).join('')
+    })
+}
+
+// ── Toggle Activity Card ──
+window.toggleActivityCard = (id) => {
+    const expand = document.getElementById(`expand-${id}`)
+    if (!expand) return
+    expand.classList.toggle('open')
+}
+
+// ── Save Activity ──
+window.saveActivity = async (id) => {
+    const typeId = document.getElementById(`edit-type-${id}`)?.value
+    const date = document.getElementById(`edit-date-${id}`)?.value
+    const duration = document.getElementById(`edit-duration-${id}`)?.value
+    const notes = document.getElementById(`edit-notes-${id}`)?.value
+    const msgEl = document.getElementById(`save-msg-${id}`)
+
+    const { error } = await supabase
+        .from('activity_logs')
+        .update({
+            activity_type_id: typeId || null,
+            logged_date: date,
+            duration_minutes: duration ? parseInt(duration) : null,
+            notes: notes || null
+        })
+        .eq('id', id)
+        .eq('user_id', user.id)
+
+    if (error) {
+        msgEl.textContent = 'Error saving. Try again.'
+        msgEl.style.color = '#ef4444'
+        return
+    }
+
+    msgEl.textContent = 'Saved!'
+    msgEl.style.color = '#10b981'
+
+    // Update card header to reflect new type name
+    const select = document.getElementById(`edit-type-${id}`)
+    const newTypeName = select.options[select.selectedIndex]?.text
+    const nameEl = document.querySelector(`#activity-card-${id} .activity-card-name`)
+    if (nameEl && newTypeName) nameEl.textContent = newTypeName
+
+    setTimeout(() => { msgEl.textContent = '' }, 2000)
+    loadDashboardStats()
+}
+
+// ── Delete Activity ──
+window.deleteActivity = async (id) => {
+    if (!confirm('Delete this activity? This cannot be undone.')) return
+
+    const { error } = await supabase
+        .from('activity_logs')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user.id)
+
+    if (error) {
+        alert('Error deleting activity.')
+        return
+    }
+
+    // Remove card from DOM
+    const card = document.getElementById(`activity-card-${id}`)
+    if (card) card.remove()
+
+    loadDashboardStats()
+}
+
+// ── Populate Filter Type Dropdown ──
+const loadFilterTypes = async () => {
+    const select = document.getElementById('filterActivityType')
+    if (!select) return
+
+    const { data } = await supabase
+        .from('activity_types')
+        .select('*')
+        .order('name')
+
+    data?.forEach(type => {
+        const opt = document.createElement('option')
+        opt.value = type.id
+        opt.textContent = type.name
+        select.appendChild(opt)
+    })
+}
+
 // ── Initialize ──
 const init = async () => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -529,6 +733,8 @@ const init = async () => {
     await loadNextEvent()
     await loadActivityTypes()
     await loadEvents()
+    await loadFilterTypes()
+    await loadActivityHistory()
 }
 
 init()

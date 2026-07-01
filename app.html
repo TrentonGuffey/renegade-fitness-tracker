@@ -25,7 +25,7 @@
         </button>
         <button class="nav-item" onclick="showSection('log')">
             <span class="nav-icon">＋</span>
-            <span>Log</span>
+            <span>Workouts</span>
         </button>
         <button class="nav-item" onclick="showSection('plan')">
             <span class="nav-icon">📅</span>
@@ -106,7 +106,7 @@
         <!-- Log Section -->
         <section id="section-log" class="app-section">
             <div class="section-header">
-                <h2>Log Activity</h2>
+                <h2>Workout Log</h2>
             </div>
             <div class="card">
                 <div class="form-group">
@@ -130,6 +130,33 @@
                 </div>
                 <button class="btn-primary" onclick="handleLogActivity()">Save Activity</button>
                 <div class="form-message" id="logMessage"></div>
+            </div>
+            <!-- Activity History -->
+            <div class="card">
+                <div class="card-header">Activity History</div>
+
+                <!-- Filters -->
+                <div class="filter-row">
+                    <select id="filterActivityType">
+                        <option value="">All Types</option>
+                    </select>
+                    <select id="filterDateRange">
+                        <option value="30">Last 30 days</option>
+                        <option value="60">Last 60 days</option>
+                        <option value="90">Last 90 days</option>
+                        <option value="365">Last year</option>
+                        <option value="0">All time</option>
+                    </select>
+                    <button class="btn-secondary" onclick="loadActivityHistory()">Filter</button>
+                </div>
+
+                <!-- Activity Cards -->
+                <div id="activityHistory"></div>
+
+                <!-- Load More -->
+                <div id="loadMoreContainer" style="text-align:center; margin-top:16px; display:none;">
+                    <button class="btn-secondary" onclick="loadMoreActivities()">Load More</button>
+                </div>
             </div>
         </section>
 

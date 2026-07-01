@@ -177,8 +177,11 @@ window.handleAppleHealthImport = async (event) => {
         const date = start.toISOString().split('T')[0]
         const duration = Math.round((end - start) / 60000)
 
-        const distance = workout.querySelector('WorkoutStatistics[type="HKQuantityTypeIdentifierDistanceWalkingRunning"]')
-        const distanceVal = distance ? parseFloat(distance.getAttribute('sum') ?? 0) : null
+        const totalDistance = workout.getAttribute('totalDistance')
+        const totalDistanceUnit = workout.getAttribute('totalDistanceUnit')
+        const distanceVal = totalDistance ? parseFloat(totalDistance) : null
+
+        console.log('Workout:', type, 'Distance:', distanceVal, 'Raw:', distance)
 
         const { data: logData, error } = await supabase.from('activity_logs').insert({
             user_id: userId,
@@ -207,12 +210,16 @@ window.handleAppleHealthImport = async (event) => {
                         .single()
 
                     if (metricDef) {
+                        // Convert km to miles if needed
+                        const distanceMiles = totalDistanceUnit === 'km'
+                            ? (distanceVal * 0.621371).toFixed(2)
+                            : distanceVal.toFixed(2)
+
                         await supabase.from('activity_metric_values').insert({
                             activity_log_id: logData.id,
                             metric_definition_id: metricDef.id,
-                            value: distanceVal.toString()
-                        })
-                    }
+                            value: distanceMiles.toString()
+                        })                    }
                 }
             }
         }
